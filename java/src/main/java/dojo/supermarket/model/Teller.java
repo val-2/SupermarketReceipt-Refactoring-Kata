@@ -1,33 +1,40 @@
 package dojo.supermarket.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.math.BigDecimal;
+import dojo.supermarket.model.offers.OfferCalculator;
+import dojo.supermarket.model.offers.OfferStrategy;
 
 public class Teller {
 
     private final SupermarketCatalog catalog;
-    private final Map<Product, Offer> offers = new HashMap<>();
+    private final List<OfferStrategy> offers = new ArrayList<>();
 
     public Teller(SupermarketCatalog catalog) {
         this.catalog = catalog;
     }
 
-    public void addSpecialOffer(SpecialOfferType offerType, Product product, double argument) {
-        offers.put(product, new Offer(offerType, product, argument));
+    public void addOffer(OfferStrategy offer) {
+        offers.add(offer);
     }
 
     public Receipt checksOutArticlesFrom(ShoppingCart theCart) {
         Receipt receipt = new Receipt();
         List<ProductQuantity> productQuantities = theCart.getItems();
-        for (ProductQuantity pq: productQuantities) {
+        for (ProductQuantity pq : productQuantities) {
             Product p = pq.getProduct();
             double quantity = pq.getQuantity();
-            double unitPrice = catalog.getUnitPrice(p);
-            double price = quantity * unitPrice;
-            receipt.addProduct(p, quantity, unitPrice, price);
+            BigDecimal unitPrice = catalog.getUnitPrice(p);
+            receipt.addProduct(p, quantity, unitPrice);
         }
-        theCart.handleOffers(receipt, offers, catalog);
+        OfferCalculator calculator = new OfferCalculator(offers);
+        var discounts = calculator.applyOffers(catalog, theCart.productQuantities());
+        for (Discount d : discounts) {
+            receipt.addDiscount(d);
+        }
 
         return receipt;
     }

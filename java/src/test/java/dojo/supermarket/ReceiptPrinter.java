@@ -2,6 +2,7 @@ package dojo.supermarket;
 
 import dojo.supermarket.model.*;
 
+import java.math.BigDecimal;
 import java.util.Locale;
 
 public class ReceiptPrinter {
@@ -69,7 +70,7 @@ public class ReceiptPrinter {
         return line.toString();
     }
 
-    private static String presentPrice(double price) {
+    private static String presentPrice(BigDecimal price) {
         return String.format(Locale.UK, "%.2f", price);
     }
 

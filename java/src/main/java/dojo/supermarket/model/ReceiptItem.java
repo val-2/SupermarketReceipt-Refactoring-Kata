@@ -1,22 +1,23 @@
 package dojo.supermarket.model;
 
+import java.math.BigDecimal;
 import java.util.Objects;
 
 public class ReceiptItem {
 
     private final Product product;
-    private final double price;
-    private final double totalPrice;
+    private final BigDecimal price;
+    private final BigDecimal totalPrice;
     private final double quantity;
 
-    ReceiptItem(Product p, double quantity, double price, double totalPrice) {
+    ReceiptItem(Product p, double quantity, BigDecimal price, BigDecimal totalPrice) {
         this.product = p;
         this.quantity = quantity;
         this.price = price;
         this.totalPrice = totalPrice;
     }
 
-    public double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
@@ -28,17 +29,19 @@ public class ReceiptItem {
         return quantity;
     }
 
-    public double getTotalPrice() {
+    public BigDecimal getTotalPrice() {
         return totalPrice;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof ReceiptItem)) return false;
+        if (this == o)
+            return true;
+        if (!(o instanceof ReceiptItem))
+            return false;
         ReceiptItem that = (ReceiptItem) o;
-        return Double.compare(that.price, price) == 0 &&
-                Double.compare(that.totalPrice, totalPrice) == 0 &&
+        return Objects.equals(price, that.price) &&
+                Objects.equals(totalPrice, that.totalPrice) &&
                 Double.compare(that.quantity, quantity) == 0 &&
                 Objects.equals(product, that.product);
     }
