@@ -6,10 +6,18 @@ public class Discount {
 
     private final String description;
     private final BigDecimal discountAmount;
-    private final Product product;
+    private final ProductQuantities productQuantities;
 
-    public Discount(Product product, String description, BigDecimal discountAmount) {
-        this.product = product;
+    public Discount(Product product, Quantity quantity, String description, BigDecimal discountAmount) {
+        ProductQuantities quantities = new ProductQuantities();
+        quantities.add(product, quantity);
+        this.productQuantities = quantities;
+        this.description = description;
+        this.discountAmount = discountAmount;
+    }
+
+    public Discount(ProductQuantities productQuantities, String description, BigDecimal discountAmount) {
+        this.productQuantities = new ProductQuantities(productQuantities);
         this.description = description;
         this.discountAmount = discountAmount;
     }
@@ -22,7 +30,7 @@ public class Discount {
         return discountAmount;
     }
 
-    public Product getProduct() {
-        return product;
+    public ProductQuantities getProductQuantities() {
+        return productQuantities;
     }
 }

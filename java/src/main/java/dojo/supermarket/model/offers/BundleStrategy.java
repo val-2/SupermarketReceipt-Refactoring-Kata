@@ -2,33 +2,30 @@ package dojo.supermarket.model.offers;
 
 import dojo.supermarket.model.Discount;
 import dojo.supermarket.model.Product;
+import dojo.supermarket.model.ProductQuantities;
+import dojo.supermarket.model.Quantity;
 import dojo.supermarket.model.SupermarketCatalog;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.StringJoiner;
 
 public class BundleStrategy implements OfferStrategy {
-    Map<Product, Double> productsRequired;
-    double discount;
+    private final ProductQuantities productsRequired;
+    private final BigDecimal discountPercent;
 
-    public BundleStrategy(Map<Product, Double> productsRequired, double discount) {
+    public BundleStrategy(ProductQuantities productsRequired, BigDecimal discountPercent) {
         this.productsRequired = productsRequired;
-        this.discount = discount;
+        this.discountPercent = discountPercent;
     }
 
-    public BundleStrategy(Map<Product, Double> productsRequired) {
-        this.productsRequired = productsRequired;
-        this.discount = 10.0;
-    }
-
-    BigDecimal getBundleTotalPrice(SupermarketCatalog catalog) {
+    private BigDecimal computeBundlePrice(SupermarketCatalog catalog) {
         BigDecimal total = BigDecimal.ZERO;
 
-        for (var productEntry : this.productsRequired.entrySet()) {
+        for (var productEntry : productsRequired) {
             Product product = productEntry.getKey();
-            Double requiredQuantity = productEntry.getValue();
+            Quantity requiredQuantity = productEntry.getValue();
 
             total = total.add(catalog.getTotalPrice(product, requiredQuantity));
         }
@@ -36,34 +33,60 @@ public class BundleStrategy implements OfferStrategy {
         return total;
     }
 
-    @Override
-    public List<Discount> compute(SupermarketCatalog catalog, Map<Product, Double> productQuantities) {
-        List<Discount> discounts = new ArrayList<>();
-
+    private int calculateMaxBundles(ProductQuantities productQuantities) {
         int maxBundles = Integer.MAX_VALUE;
-
-        for (var productQuantityRequired : this.productsRequired.entrySet()) {
-            Product requiredProduct = productQuantityRequired.getKey();
-            Double requiredQuantity = productQuantityRequired.getValue();
-
-            Double productQuantity = productQuantities.getOrDefault(requiredProduct, (double) 0);
-
-            var nBundles = (int) Math.floor(productQuantity / requiredQuantity);
-
-            if (nBundles < maxBundles) {
-                maxBundles = nBundles;
-            }
+        for (var entry : productsRequired) {
+            Quantity available = productQuantities.get(entry.getKey());
+            int nBundles = available.floorDivide(entry.getValue());
+            maxBundles = Math.min(maxBundles, nBundles);
         }
+        return maxBundles;
+    }
 
-        if (maxBundles > 0 && maxBundles != Integer.MAX_VALUE) {
-            double totalDiscountPercentage = this.discount * maxBundles;
-            BigDecimal totalPrice = getBundleTotalPrice(catalog);
-            BigDecimal totalDiscount = totalPrice.multiply(BigDecimal.valueOf(totalDiscountPercentage)).negate();
-            discounts.add(new Discount("Bundle Offer", totalDiscount));
+    private boolean hasValidBundle(int maxBundles) {
+        return maxBundles > 0 && maxBundles != Integer.MAX_VALUE;
+    }
+
+    private BigDecimal discountPercentFraction() {
+        return discountPercent.movePointLeft(2);
+    }
+
+    private BigDecimal computeDiscountAmount(BigDecimal bundlePrice, int maxBundles) {
+        return bundlePrice.multiply(discountPercentFraction()).multiply(BigDecimal.valueOf(maxBundles));
+    }
+
+    private String buildBundleDescription() {
+        StringJoiner joiner = new StringJoiner("+", "Bundle Offer: ", "");
+        for (var entry : productsRequired) {
+            joiner.add(entry.getKey().getName());
+        }
+        return joiner.toString();
+    }
+
+    private ProductQuantities computeConsumedQuantities(int maxBundles) {
+        ProductQuantities consumedQuantities = new ProductQuantities();
+        for (var entry : productsRequired) {
+            consumedQuantities.add(entry.getKey(), entry.getValue().multiply(maxBundles));
+        }
+        return consumedQuantities;
+    }
+
+    @Override
+    public List<Discount> computeDiscounts(SupermarketCatalog catalog, ProductQuantities productQuantities) {
+        int maxBundles = calculateMaxBundles(productQuantities);
+
+        List<Discount> discounts = new ArrayList<>();
+        if (!hasValidBundle(maxBundles)) {
             return discounts;
         }
 
-        return null;
+        BigDecimal bundlePrice = computeBundlePrice(catalog);
+        BigDecimal totalDiscount = computeDiscountAmount(bundlePrice, maxBundles);
+        String description = buildBundleDescription();
+        ProductQuantities consumedQuantities = computeConsumedQuantities(maxBundles);
+
+        discounts.add(new Discount(consumedQuantities, description, totalDiscount));
+        return discounts;
     }
 
 }

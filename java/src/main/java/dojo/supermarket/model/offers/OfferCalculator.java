@@ -2,10 +2,7 @@ package dojo.supermarket.model.offers;
 
 import dojo.supermarket.model.*;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class OfferCalculator {
 
@@ -15,12 +12,45 @@ public class OfferCalculator {
         this.offers = offers;
     }
 
-    public List<Discount> applyOffers(SupermarketCatalog catalog, Map<Product, Double> productQuantities) {
-        List<Discount> discounts = new ArrayList<>();
+    private record ExclusiveOfferResult(List<Discount> discounts, ProductQuantities remainingQuantities) {
+    }
 
-        for (var strategy : offers) {
-            var partialDiscounts = strategy.compute(catalog, productQuantities);
-            discounts.addAll(partialDiscounts);
+    public List<Discount> applyOffers(SupermarketCatalog catalog, ProductQuantities initialQuantities) {
+        List<Discount> finalDiscounts = new ArrayList<>();
+
+        ExclusiveOfferResult exclusiveResult = applyExclusiveStrategies(catalog, initialQuantities);
+        finalDiscounts.addAll(exclusiveResult.discounts());
+        ProductQuantities remainingQuantities = exclusiveResult.remainingQuantities();
+
+        List<Discount> standardDiscounts = applyStandardStrategies(catalog, remainingQuantities);
+        finalDiscounts.addAll(standardDiscounts);
+
+        return finalDiscounts;
+    }
+
+    private ExclusiveOfferResult applyExclusiveStrategies(SupermarketCatalog catalog, ProductQuantities quantities) {
+        ProductQuantities currentRemaining = new ProductQuantities(quantities);
+        List<Discount> collected = new ArrayList<>();
+
+        for (OfferStrategy strategy : offers) {
+            if (!strategy.isCumulative()) {
+                List<Discount> discounts = strategy.computeDiscounts(catalog, currentRemaining);
+                for (Discount d : discounts) {
+                    collected.add(d);
+                    currentRemaining = currentRemaining.subtract(d.getProductQuantities());
+                }
+            }
+        }
+
+        return new ExclusiveOfferResult(collected, currentRemaining);
+    }
+
+    private List<Discount> applyStandardStrategies(SupermarketCatalog catalog, ProductQuantities remainingQuantities) {
+        List<Discount> discounts = new ArrayList<>();
+        for (OfferStrategy strategy : offers) {
+            if (strategy.isCumulative()) {
+                discounts.addAll(strategy.computeDiscounts(catalog, remainingQuantities));
+            }
         }
         return discounts;
     }

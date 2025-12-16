@@ -8,5 +8,5 @@ public interface SupermarketCatalog {
 
     BigDecimal getUnitPrice(Product product);
 
-    BigDecimal getTotalPrice(Product product, double quantity);
+    BigDecimal getTotalPrice(Product product, Quantity quantity);
 }

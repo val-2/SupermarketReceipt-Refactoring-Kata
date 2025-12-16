@@ -20,8 +20,8 @@ public class FakeCatalog implements SupermarketCatalog {
     }
 
     @Override
-    public BigDecimal getTotalPrice(Product product, double quantity) {
+    public BigDecimal getTotalPrice(Product product, Quantity quantity) {
         BigDecimal unitPrice = this.getUnitPrice(product);
-        return unitPrice.multiply(BigDecimal.valueOf(quantity));
+        return unitPrice.multiply(BigDecimal.valueOf(quantity.getDouble()));
     }
 }

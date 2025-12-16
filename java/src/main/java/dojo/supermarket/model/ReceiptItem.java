@@ -8,13 +8,13 @@ public class ReceiptItem {
     private final Product product;
     private final BigDecimal price;
     private final BigDecimal totalPrice;
-    private final double quantity;
+    private final Quantity quantity;
 
-    ReceiptItem(Product p, double quantity, BigDecimal price, BigDecimal totalPrice) {
+    ReceiptItem(Product p, Quantity quantity, BigDecimal unitPrice) {
         this.product = p;
         this.quantity = quantity;
-        this.price = price;
-        this.totalPrice = totalPrice;
+        this.price = unitPrice;
+        this.totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity.getDouble()));
     }
 
     public BigDecimal getPrice() {
@@ -25,7 +25,7 @@ public class ReceiptItem {
         return product;
     }
 
-    public double getQuantity() {
+    public Quantity getQuantity() {
         return quantity;
     }
 
@@ -35,14 +35,16 @@ public class ReceiptItem {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (!(o instanceof ReceiptItem))
+        }
+        if (!(o instanceof ReceiptItem)) {
             return false;
+        }
         ReceiptItem that = (ReceiptItem) o;
         return Objects.equals(price, that.price) &&
                 Objects.equals(totalPrice, that.totalPrice) &&
-                Double.compare(that.quantity, quantity) == 0 &&
+                Objects.equals(quantity, that.quantity) &&
                 Objects.equals(product, that.product);
     }
 

@@ -4,13 +4,17 @@ import dojo.supermarket.model.*;
 
 import java.math.BigDecimal;
 import java.util.Locale;
+import java.util.Map;
+import java.util.StringJoiner;
 
 public class ReceiptPrinter {
+
+    private static final int DEFAULT_COLUMNS = 40;
 
     private final int columns;
 
     public ReceiptPrinter() {
-        this(40);
+        this(DEFAULT_COLUMNS);
     }
 
     public ReceiptPrinter(int columns) {
@@ -19,18 +23,35 @@ public class ReceiptPrinter {
 
     public String printReceipt(Receipt receipt) {
         StringBuilder result = new StringBuilder();
-        for (ReceiptItem item : receipt.getItems()) {
-            String receiptItem = presentReceiptItem(item);
-            result.append(receiptItem);
-        }
-        for (Discount discount : receipt.getDiscounts()) {
-            String discountPresentation = presentDiscount(discount);
-            result.append(discountPresentation);
-        }
-
+        result.append(presentItems(receipt));
+        result.append(presentDiscounts(receipt));
         result.append("\n");
         result.append(presentTotal(receipt));
+        result.append(presentLoyaltyPoints(receipt));
         return result.toString();
+    }
+
+    private String presentItems(Receipt receipt) {
+        StringBuilder result = new StringBuilder();
+        for (ReceiptItem item : receipt.getItems()) {
+            result.append(presentReceiptItem(item));
+        }
+        return result.toString();
+    }
+
+    private String presentDiscounts(Receipt receipt) {
+        StringBuilder result = new StringBuilder();
+        for (Discount discount : receipt.getDiscounts()) {
+            result.append(presentDiscount(discount));
+        }
+        return result.toString();
+    }
+
+    private String presentLoyaltyPoints(Receipt receipt) {
+        if (receipt.getEarnedPoints() > 0) {
+            return "\nLoyalty Points Earned: " + receipt.getEarnedPoints() + "\n";
+        }
+        return "";
     }
 
     private String presentReceiptItem(ReceiptItem item) {
@@ -39,17 +60,37 @@ public class ReceiptPrinter {
 
         String line = formatLineWithWhitespace(name, totalPricePresentation);
 
-        if (item.getQuantity() != 1) {
-            line += "  " + presentPrice(item.getPrice()) + " * " + presentQuantity(item) + "\n";
+        if (item.getQuantity().getDouble() != 1) {
+            line += "  " + presentPrice(item.getPrice()) + " * "
+                    + presentQuantity(item.getProduct(), item.getQuantity()) + "\n";
         }
         return line;
     }
 
     private String presentDiscount(Discount discount) {
-        String name = discount.getDescription() + "(" + discount.getProduct().getName() + ")";
-        String value = presentPrice(discount.getDiscountAmount());
+        String name = discount.getDescription();
+        ProductQuantities productQuantities = discount.getProductQuantities();
 
+        if (!productQuantities.isEmpty()) {
+            StringJoiner joiner = new StringJoiner(", ", "(", ")");
+            for (var entry : productQuantities) {
+                joiner.add(formatProductEntry(entry));
+            }
+            name += joiner.toString();
+        }
+
+        String value = presentPrice(discount.getDiscountAmount().negate());
         return formatLineWithWhitespace(name, value);
+    }
+
+    private String formatProductEntry(Map.Entry<Product, Quantity> entry) {
+        String productName = entry.getKey().getName();
+        double quantity = entry.getValue().getDouble();
+
+        if (quantity != 1.0 && quantity != 0.0) {
+            return productName + " x" + presentQuantityValue(entry.getValue());
+        }
+        return productName;
     }
 
     private String presentTotal(Receipt receipt) {
@@ -59,24 +100,26 @@ public class ReceiptPrinter {
     }
 
     private String formatLineWithWhitespace(String name, String value) {
-        StringBuilder line = new StringBuilder();
-        line.append(name);
-        int whitespaceSize = this.columns - name.length() - value.length();
-        for (int i = 0; i < whitespaceSize; i++) {
-            line.append(" ");
-        }
-        line.append(value);
-        line.append('\n');
-        return line.toString();
+        int whitespaceSize = Math.max(0, this.columns - name.length() - value.length());
+        return name + " ".repeat(whitespaceSize) + value + "\n";
     }
 
     private static String presentPrice(BigDecimal price) {
         return String.format(Locale.UK, "%.2f", price);
     }
 
-    private static String presentQuantity(ReceiptItem item) {
-        return ProductUnit.EACH.equals(item.getProduct().getUnit())
-                ? String.format("%d", (int)item.getQuantity())
-                : String.format(Locale.UK, "%.3f", item.getQuantity());
+    private static String presentQuantity(Product product, Quantity quantity) {
+        if (ProductUnit.EACH.equals(product.getUnit())) {
+            return String.format("%d", (int) quantity.getDouble());
+        }
+        return presentQuantityValue(quantity);
+    }
+
+    private static String presentQuantityValue(Quantity quantity) {
+        double value = quantity.getDouble();
+        if (value % 1 == 0) {
+            return String.valueOf((int) value);
+        }
+        return String.format(Locale.UK, "%.3f", value);
     }
 }
